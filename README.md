@@ -29,6 +29,14 @@ You can run **AsciiYart** immediately without any installer or setup wizard:
 
 ---
 
+## 📸 Application Screenshots
+
+| 1. ASCII Art Studio & Controls | 2. Curated Demo Photos Drawer |
+| :---: | :---: |
+| <img src="screenshots/screenshot_main.png" width="480" alt="ASCII Art Studio" /> | <img src="screenshots/screenshot_demo_selection.png" width="480" alt="Demo Photos Drawer" /> |
+
+---
+
 ## ✨ Features
 
 - **⚡ Real-Time Photo Conversion:**
@@ -91,6 +99,9 @@ AsciiYart/
 ├── AsciiYart.ico         # Studio application icon
 ├── build.bat             # 1-click build script
 ├── README.md             # Documentation
+├── screenshots/          # Application UI previews
+│   ├── screenshot_main.png
+│   └── screenshot_demo_selection.png
 └── src/
     ├── AsciiYartApp.cs   # Desktop host & embedded HTTP server
     ├── AsciiYart.html    # Studio user interface

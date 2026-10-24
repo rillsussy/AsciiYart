@@ -11,6 +11,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
@@ -47,44 +48,62 @@ namespace AsciiYartDesktop
         {
             try { SetProcessDPIAware(); } catch { }
 
-            // Ensure single instance: bring existing AsciiYart window to foreground
-            bool createdNew;
-            using (Mutex mutex = new Mutex(true, "AsciiYart_SingleInstance_Mutex_2026", out createdNew))
+            bool isScreenshot = false;
+            foreach (string a in Environment.GetCommandLineArgs())
             {
-                if (!createdNew)
-                {
-                    IntPtr existingHwnd = FindWindow(null, "AsciiYart");
-                    if (existingHwnd != IntPtr.Zero)
-                    {
-                        ShowWindow(existingHwnd, 9); // SW_RESTORE
-                        SetForegroundWindow(existingHwnd);
-                        return;
-                    }
-                }
-
-                AppRuntimeDir = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "AsciiYart",
-                    "Runtime"
-                );
-                Directory.CreateDirectory(AppRuntimeDir);
-
-                ExtractNativeLoaderIfNeeded();
-                SetDllDirectory(AppRuntimeDir);
-
-                AppDomain.CurrentDomain.AssemblyResolve += OnResolveAssembly;
-                Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
-                Application.ThreadException += (s, e) =>
-                {
-                    try { File.AppendAllText(Path.Combine(AppRuntimeDir, "startup.log"), "ThreadException: " + e.Exception + "\r\n"); } catch { }
-                };
-                AppDomain.CurrentDomain.UnhandledException += (s, e) =>
-                {
-                    try { File.AppendAllText(Path.Combine(AppRuntimeDir, "startup.log"), "UnhandledException: " + e.ExceptionObject + "\r\n"); } catch { }
-                };
-
-                RunStudioWindow();
+                if (a.IndexOf("screenshot", StringComparison.OrdinalIgnoreCase) >= 0) { isScreenshot = true; break; }
             }
+
+            // Ensure single instance: bring existing AsciiYart window to foreground (skip if screenshot)
+            if (!isScreenshot)
+            {
+                bool createdNew;
+                using (Mutex mutex = new Mutex(true, "AsciiYart_SingleInstance_Mutex_2026", out createdNew))
+                {
+                    if (!createdNew)
+                    {
+                        IntPtr existingHwnd = FindWindow(null, "AsciiYart");
+                        if (existingHwnd != IntPtr.Zero)
+                        {
+                            ShowWindow(existingHwnd, 9); // SW_RESTORE
+                            SetForegroundWindow(existingHwnd);
+                            return;
+                        }
+                    }
+
+                    InitAndRunStudio();
+                }
+            }
+            else
+            {
+                InitAndRunStudio();
+            }
+        }
+
+        private static void InitAndRunStudio()
+        {
+            AppRuntimeDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "AsciiYart",
+                "Runtime"
+            );
+            Directory.CreateDirectory(AppRuntimeDir);
+
+            ExtractNativeLoaderIfNeeded();
+            SetDllDirectory(AppRuntimeDir);
+
+            AppDomain.CurrentDomain.AssemblyResolve += OnResolveAssembly;
+            Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+            Application.ThreadException += (s, e) =>
+            {
+                try { File.AppendAllText(Path.Combine(AppRuntimeDir, "startup.log"), "ThreadException: " + e.Exception + "\r\n"); } catch { }
+            };
+            AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+            {
+                try { File.AppendAllText(Path.Combine(AppRuntimeDir, "startup.log"), "UnhandledException: " + e.ExceptionObject + "\r\n"); } catch { }
+            };
+
+            RunStudioWindow();
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
@@ -404,9 +423,79 @@ namespace AsciiYartDesktop
 
                 _webView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
                 _webView.CoreWebView2.Settings.IsStatusBarEnabled = false;
-                _webView.CoreWebView2.NavigationCompleted += (s, args) =>
+                _webView.CoreWebView2.NavigationCompleted += async (s, args) =>
                 {
                     try { File.AppendAllText(Path.Combine(Program.AppRuntimeDir, "startup.log"), "NavigationCompleted: IsSuccess=" + args.IsSuccess + "\r\n"); } catch { }
+
+                    string[] cmdArgs = Environment.GetCommandLineArgs();
+                    string screenshotArg = null;
+                    string demoArg = "Apollo";
+                    bool showDrawer = false;
+                    for (int i = 0; i < cmdArgs.Length; i++)
+                    {
+                        if (cmdArgs[i].StartsWith("--screenshot=", StringComparison.OrdinalIgnoreCase))
+                        {
+                            screenshotArg = cmdArgs[i].Substring("--screenshot=".Length).Trim('\"');
+                        }
+                        else if (cmdArgs[i].Equals("--screenshot", StringComparison.OrdinalIgnoreCase) && i + 1 < cmdArgs.Length)
+                        {
+                            screenshotArg = cmdArgs[i + 1].Trim('\"');
+                        }
+                        else if (cmdArgs[i].StartsWith("--demo=", StringComparison.OrdinalIgnoreCase))
+                        {
+                            demoArg = cmdArgs[i].Substring("--demo=".Length).Trim('\"');
+                        }
+                        else if (cmdArgs[i].Equals("--demo-drawer", StringComparison.OrdinalIgnoreCase))
+                        {
+                            showDrawer = true;
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(screenshotArg))
+                    {
+                        try
+                        {
+                            await Task.Delay(500);
+                            if (!string.IsNullOrEmpty(demoArg))
+                            {
+                                await _webView.CoreWebView2.ExecuteScriptAsync(
+                                    "(() => {" +
+                                    "  const btn = document.getElementById('menuLoad" + demoArg + "');" +
+                                    "  if (btn) btn.click();" +
+                                    "})();"
+                                );
+                                await Task.Delay(800);
+                            }
+
+                            if (showDrawer)
+                            {
+                                await _webView.CoreWebView2.ExecuteScriptAsync(
+                                    "(() => {" +
+                                    "  const railBtn = document.getElementById('railPhotoDemoBtn');" +
+                                    "  if (railBtn) railBtn.click();" +
+                                    "})();"
+                                );
+                                await Task.Delay(400);
+                            }
+
+                            string fullScreenshotPath = Path.GetFullPath(screenshotArg);
+                            string screenshotDir = Path.GetDirectoryName(fullScreenshotPath);
+                            if (!string.IsNullOrEmpty(screenshotDir)) Directory.CreateDirectory(screenshotDir);
+
+                            using (FileStream fs = new FileStream(fullScreenshotPath, FileMode.Create, FileAccess.Write))
+                            {
+                                await _webView.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, fs);
+                            }
+                        }
+                        catch (Exception scEx)
+                        {
+                            try { File.AppendAllText(Path.Combine(Program.AppRuntimeDir, "startup.log"), "ScreenshotError: " + scEx + "\r\n"); } catch { }
+                        }
+                        finally
+                        {
+                            Application.Exit();
+                        }
+                    }
                 };
                 _webView.CoreWebView2.Navigate(url);
             }
