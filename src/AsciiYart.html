@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AsciiYart</title>
+  <link rel="icon" type="image/svg+xml" href="brand/dist/symbol/favicon.svg" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="app-window">
+    <!-- ===================================================================
+         WINDOW TITLEBAR
+         =================================================================== -->
+    <div class="window-titlebar">
+      <div class="traffic-lights">
+        <span class="traffic-dot red"></span>
+        <span class="traffic-dot yellow"></span>
+        <span class="traffic-dot green"></span>
+      </div>
+      <div class="window-title">AsciiYart</div>
+    </div>
+
+    <!-- ===================================================================
+         TOP MENU BAR (File Edit View Help)
+         =================================================================== -->
+    <nav class="menubar">
+      <div class="menu-item">
+        <button class="menu-trigger">File</button>
+        <div class="menu-dropdown">
+          <button class="menu-option" id="menuOpenMedia"><span>Import Photo (PNG / JPEG)...</span></button>
+          <div class="menu-sep"></div>
+          <button class="menu-option" id="menuExportPng"><span>Export PNG Image</span><span class="kbd">Ctrl+E</span></button>
+          <button class="menu-option" id="menuExportJpg"><span>Export JPEG Image</span><span class="kbd">Ctrl+S</span></button>
+          <button class="menu-option" id="menuCopyAscii"><span>Copy ASCII Text to Clipboard</span><span class="kbd">Ctrl+C</span></button>
+        </div>
+      </div>
+
+      <div class="menu-item">
+        <button class="menu-trigger">Edit</button>
+        <div class="menu-dropdown">
+          <button class="menu-option" id="menuUndo"><span>Undo</span><span class="kbd">Ctrl+Z</span></button>
+          <button class="menu-option" id="menuRedo"><span>Redo</span><span class="kbd">Ctrl+Y</span></button>
+          <div class="menu-sep"></div>
+          <button class="menu-option" id="menuExtractPalette"><span>Extract Palette from Photo (K-Means)</span></button>
+          <button class="menu-option" id="menuRandomize"><span>Randomize ASCII Style & Palette</span><span class="kbd">R</span></button>
+          <button class="menu-option" id="menuResetAll"><span>Reset Settings</span></button>
+        </div>
+      </div>
+
+      <div class="menu-item">
+        <button class="menu-trigger">View</button>
+        <div class="menu-dropdown">
+          <button class="menu-option" id="menuToggleRawText"><span>Toggle Selectable Raw Text View</span><span class="kbd">T</span></button>
+          <button class="menu-option" id="menuToggleOriginal"><span>Toggle Original Photo Compare</span></button>
+          <button class="menu-option" id="menuZoomIn"><span>Zoom In</span><span class="kbd">+</span></button>
+          <button class="menu-option" id="menuZoomOut"><span>Zoom Out</span><span class="kbd">-</span></button>
+          <button class="menu-option" id="menuZoomReset"><span>Reset Zoom (100%)</span><span class="kbd">0</span></button>
+          <div class="menu-sep"></div>
+          <button class="menu-option" id="menuToggleSidebar"><span>Toggle Inspector Sidebar</span></button>
+        </div>
+      </div>
+
+      <div class="menu-item">
+        <button class="menu-trigger">Help</button>
+        <div class="menu-dropdown">
+          <button class="menu-option" id="menuLoadApollo"><span>Demo: Marble Statue</span></button>
+          <button class="menu-option" id="menuLoadCat"><span>Demo: Feline Portrait</span></button>
+          <button class="menu-option" id="menuLoadNoir"><span>Demo: Film Noir Portrait</span></button>
+          <button class="menu-option" id="menuLoadCity"><span>Demo: Cyberpunk Car</span></button>
+          <button class="menu-option" id="menuLoadSakura"><span>Demo: Sakura & Fuji</span></button>
+          <button class="menu-option" id="menuLoadAstro"><span>Demo: Space Explorer</span></button>
+          <div class="menu-sep"></div>
+          <button class="menu-option" id="menuShowHelpToast"><span>Photo to ASCII Art Guide</span><span class="kbd">Ctrl+/</span></button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Hidden File Input (Photos Only) -->
+    <input type="file" id="mediaFileInput" accept="image/png,image/jpeg,image/webp,image/bmp,image/gif" style="display:none" />
+
+    <!-- ===================================================================
+         MAIN WORKSPACE
+         =================================================================== -->
+    <div class="main-workspace">
+      <!-- LEFT COLUMN: FULL-HEIGHT CANVAS STAGE + STATUS FOOTER -->
+      <div class="stage-column">
+        <!-- Main ASCII Canvas & Selectable Raw Text Viewport -->
+        <div class="canvas-viewport" id="viewportArea">
+          <!-- Empty State Dropzone (Shown before a photo is imported) -->
+          <div
+            id="emptyPhotoState"
+            style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:42px 54px;border:1px dashed #2a2d38;border-radius:10px;background:#0d0e12;color:#8b8e9e;cursor:pointer;text-align:center"
+          >
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#6b9eff" stroke-width="1.6">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+            <div style="font-size:13px;font-weight:600;color:#e4e5eb">Import or Drop a Photo Here</div>
+            <div style="font-size:11px;color:#686b7a">Supports PNG, JPEG, WebP (or paste with Ctrl+V)</div>
+            <button class="btn-import" style="width:150px;margin-top:4px;pointer-events:none">Choose Photo...</button>
+          </div>
+
+          <div class="canvas-frame" id="canvasMount" style="display:none">
+            <canvas id="outputCanvas" width="600" height="600"></canvas>
+            <canvas id="sourceCompareCanvas" width="600" height="600"></canvas>
+            <pre
+              id="rawTextPreview"
+              style="display:none;margin:0;padding:16px;background:#09090b;color:#e5e4ce;font:bold 8px/8.5px 'JetBrains Mono','Consolas',monospace;user-select:text;cursor:text;max-height:calc(100vh - 120px);overflow:auto;border:1px solid #252834;border-radius:4px"
+            ></pre>
+          </div>
+        </div>
+
+        <!-- Bottom Status & Viewport Footer -->
+        <footer class="status-footer">
+          <div class="footer-left">
+            <span id="statusReadyText">Waiting for photo...</span>
+            <div class="zoom-controls">
+              <button class="zoom-btn" id="zoomOutBtn" title="Zoom Out">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              </button>
+              <span id="zoomReadout" style="min-width:34px;text-align:center;font-family:var(--font-mono);font-size:10.5px">100%</span>
+              <button class="zoom-btn" id="zoomInBtn" title="Zoom In">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              </button>
+              <button class="zoom-btn" id="zoomResetBtn" title="Reset Zoom">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg>
+              </button>
+            </div>
+            <button class="add-anim-btn" id="copyAsciiQuickBtn" title="Copy ASCII Art Text to Clipboard" style="margin-left:6px;padding:3px 9px;display:inline-flex;align-items:center;gap:5px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              <span>Copy Text</span>
+            </button>
+          </div>
+
+          <div class="footer-right">
+            <span class="footer-group-label">VIEWPORT</span>
+            <div class="pill-group" id="viewportModeGroup">
+              <button class="footer-pill active" data-vmode="ascii">ASCII ART</button>
+              <button class="footer-pill" data-vmode="raw">RAW TEXT</button>
+              <button class="footer-pill" data-vmode="original">ORIGINAL PHOTO</button>
+            </div>
+
+            <span class="filename-label" id="activeFilenameLabel">No photo loaded</span>
+            <button class="zoom-btn" id="undoFooterBtn" title="Undo (Ctrl+Z)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
+            </button>
+          </div>
+        </footer>
+      </div>
+
+      <!-- =================================================================
+           SLIM VERTICAL ICON RAIL
+           ================================================================= -->
+      <aside class="icon-rail">
+        <div class="rail-top">
+          <button class="rail-btn active" data-pane="paneDither" id="railSettingsBtn" title="ASCII & Color Palette Settings">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </button>
+
+          <button class="rail-btn" data-pane="paneDemoPhotos" id="railPhotoDemoBtn" title="Demo Photos">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+          </button>
+        </div>
+
+        <button class="rail-btn" id="collapseSidebarBtn" title="Collapse/Expand Inspector">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+      </aside>
+
+      <!-- =================================================================
+           RIGHT INSPECTOR SIDEBAR
+           ================================================================= -->
+      <aside class="inspector-sidebar" id="inspectorSidebar">
+        <!-- Import Photo & Export Image (PNG / JPEG) Buttons -->
+        <div class="io-actions">
+          <button class="btn-import" id="openMediaBtn" style="display:flex;align-items:center;justify-content:center;gap:6px">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            <span>Import Photo</span>
+          </button>
+          <div class="export-split-row">
+            <button class="btn-export-main" id="mainExportBtn" style="display:flex;align-items:center;justify-content:center;gap:6px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              <span>Export Image</span>
+            </button>
+            <select class="export-fmt-select" id="exportFormatSelect" title="Select Image Format">
+              <option value="png" selected>PNG</option>
+              <option value="jpeg">JPEG</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- ===============================================================
+             PANE 1: ASCII STYLE, SETTINGS & COLOR PALETTE
+             =============================================================== -->
+        <div class="inspector-pane active" id="paneDither">
+          <!-- ASCII STYLE SECTION -->
+          <div class="inspector-section">
+            <div class="section-header">
+              <span>STYLE</span>
+            </div>
+
+            <div class="field-group">
+              <div class="field-label">Category</div>
+              <div class="select-stepper-row">
+                <select class="clean-select" id="asciiCategorySelect">
+                  <option value="all" selected>All (17)</option>
+                  <option value="classic">Classic ASCII</option>
+                  <option value="contour">Edge-Guided Contour</option>
+                  <option value="blocks">ANSI & Braille Blocks</option>
+                  <option value="cyber">Matrix & Cyber</option>
+                  <option value="custom">Custom Characters</option>
+                </select>
+                <button class="step-arrow-btn" id="prevAsciiCatBtn" title="Previous Category">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                </button>
+                <button class="step-arrow-btn" id="nextAsciiCatBtn" title="Next Category">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <div class="field-label">Style (Character Set)</div>
+              <div class="select-stepper-row">
+                <select class="clean-select" id="asciiStyleSelect">
+                  <!-- Populated by app.js -->
+                </select>
+                <button class="step-arrow-btn" id="prevAsciiStyleBtn" title="Previous Character Set">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                </button>
+                <button class="step-arrow-btn" id="nextAsciiStyleBtn" title="Next Character Set">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Live Editable Character Ramp -->
+            <div class="field-group">
+              <div class="field-label">Characters (Dark → Bright)</div>
+              <input
+                type="text"
+                class="color-hex-input"
+                id="customRampInput"
+                value=" .:-=+*#%@"
+                placeholder="Type custom characters or word..."
+                style="width:100%"
+              />
+            </div>
+          </div>
+
+          <!-- ASCII SETTINGS SECTION -->
+          <div class="inspector-section">
+            <div class="section-header">
+              <span style="display:inline-flex;align-items:center;gap:4px">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                ASCII SETTINGS
+              </span>
+              <button class="section-reset-btn" id="resetAsciiSettingsBtn" title="Reset Settings">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg>
+              </button>
+            </div>
+
+            <div id="ditherSettingsBody" style="display:flex;flex-direction:column;gap:10px">
+              <!-- Scale (Columns / DPI) -->
+              <div class="field-group">
+                <div class="field-label">Scale (DPI)</div>
+                <div class="slider-num-row">
+                  <input type="range" class="minimal-slider" id="sliderColumns" min="25" max="200" step="1" value="96" />
+                  <input type="number" class="num-box" id="numColumns" min="25" max="200" value="96" />
+                </div>
+              </div>
+
+              <!-- Luminance Threshold -->
+              <div class="field-group">
+                <div class="field-label">
+                  <span>Luminance Threshold</span>
+                </div>
+                <div class="slider-num-row">
+                  <input type="range" class="minimal-slider" id="sliderThreshold" min="-80" max="80" step="1" value="0" />
+                  <input type="number" class="num-box" id="numThreshold" min="-80" max="80" value="0" />
+                </div>
+              </div>
+
+              <!-- Line Scale -->
+              <div class="field-group">
+                <div class="field-label">Line Scale</div>
+                <div class="slider-num-row">
+                  <input type="range" class="minimal-slider" id="sliderLineScale" min="1" max="10" step="1" value="5" />
+                  <input type="number" class="num-box" id="numLineScale" min="1" max="10" value="5" />
+                </div>
+              </div>
+
+              <!-- Expandable Advanced ASCII Controls -->
+              <div id="moreAsciiControls" style="display:none;flex-direction:column;gap:10px;padding-top:4px">
+                <div class="field-group">
+                  <div class="field-label">Character Cell Dithering</div>
+                  <select class="clean-select" id="asciiDitherModeSelect">
+                    <option value="floyd" selected>Floyd-Steinberg (Smooth)</option>
+                    <option value="atkinson">Atkinson (High Contrast)</option>
+                    <option value="bayer">Bayer 4×4 Matrix</option>
+                    <option value="none">None (Direct Quantize)</option>
+                  </select>
+                </div>
+
+                <div class="field-group">
+                  <div class="field-label">Edge Contour Outlines (| - / \)</div>
+                  <div class="slider-num-row">
+                    <input type="range" class="minimal-slider" id="sliderEdgeStrength" min="0" max="100" step="1" value="40" />
+                    <input type="number" class="num-box" id="numEdgeStrength" min="0" max="100" value="40" />
+                  </div>
+                </div>
+
+                <div class="field-group">
+                  <div class="field-label">Photo Contrast (%)</div>
+                  <div class="slider-num-row">
+                    <input type="range" class="minimal-slider" id="sliderContrast" min="40" max="240" step="5" value="125" />
+                    <input type="number" class="num-box" id="numContrast" min="40" max="240" value="125" />
+                  </div>
+                </div>
+
+                <div class="field-group">
+                  <div class="field-label">CRT Terminal Scanlines</div>
+                  <div class="slider-num-row">
+                    <input type="range" class="minimal-slider" id="sliderScanlines" min="0" max="100" step="1" value="15" />
+                    <input type="number" class="num-box" id="numScanlines" min="0" max="100" value="15" />
+                  </div>
+                </div>
+
+                <label style="display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text-dim);cursor:pointer">
+                  <input type="checkbox" id="chkInvertAscii" style="accent-color:#6b9eff" />
+                  <span>Invert Photo Brightness</span>
+                </label>
+              </div>
+
+              <button
+                id="toggleMoreAsciiBtn"
+                style="background:transparent;border:none;color:var(--text-muted);font-size:10.5px;text-align:left;cursor:pointer;padding:2px 0"
+              >
+                + Advanced ASCII & Edge Controls...
+              </button>
+            </div>
+          </div>
+
+          <!-- COLOR PALETTE SECTION -->
+          <div class="inspector-section">
+            <div class="section-header">
+              <span style="display:inline-flex;align-items:center;gap:4px">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                COLOR PALETTE
+              </span>
+              <button class="section-reset-btn" id="extractPaletteQuickBtn" title="Extract Palette from Photo">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 22 1-1h3l9-9"></path><path d="M3 21v-3l9-9"></path><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"></path></svg>
+              </button>
+            </div>
+
+            <div id="paletteSectionBody" style="display:flex;flex-direction:column;gap:10px">
+              <!-- Color Mode -->
+              <div class="field-group">
+                <div class="field-label">Color Mode</div>
+                <select class="clean-select" id="asciiColorModeSelect">
+                  <option value="palette" selected>Palette Mapped</option>
+                  <option value="photo-rgb">True Photo RGB Color</option>
+                  <option value="monochrome">Monochrome Terminal (1-Color)</option>
+                </select>
+              </div>
+
+              <!-- Palette Category -->
+              <div class="field-group" id="paletteCatGroup">
+                <div class="field-label">Category</div>
+                <div class="select-stepper-row">
+                  <select class="clean-select" id="paletteCategorySelect">
+                    <option value="Abstract" selected>Abstract</option>
+                    <option value="all">All Palettes (35)</option>
+                    <option value="1-Bit & Monitors">1-Bit & Monitors</option>
+                    <option value="Retro Handhelds">Retro Handhelds</option>
+                    <option value="Retro Computers">Retro Computers</option>
+                    <option value="Risograph & Print">Risograph & Print</option>
+                    <option value="Modern & Stylized">Modern & Stylized</option>
+                  </select>
+                  <button class="step-arrow-btn" id="prevPalCatBtn" title="Previous Palette Category">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                  </button>
+                  <button class="step-arrow-btn" id="nextPalCatBtn" title="Next Palette Category">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Palette Selector -->
+              <div class="field-group" id="paletteSelectGroup">
+                <div class="field-label">Palette</div>
+                <div class="select-stepper-row">
+                  <div class="palette-picker-wrap">
+                    <div class="palette-mini-preview" id="paletteMiniPreview"></div>
+                    <select class="clean-select" id="paletteSelect"></select>
+                  </div>
+                  <button class="step-arrow-btn" id="prevPaletteBtn" title="Previous Palette">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                  </button>
+                  <button class="step-arrow-btn" id="nextPaletteBtn" title="Next Palette">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Colors Vertical List -->
+              <div class="colors-header-row">
+                <span>Colors</span>
+                <div style="display:flex;gap:6px">
+                  <button class="color-row-btn" id="extractKMeansBtn" title="Extract Colors from Photo" style="width:auto;padding:0 7px;display:inline-flex;align-items:center;gap:4px">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 22 1-1h3l9-9"></path><path d="M3 21v-3l9-9"></path><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"></path></svg>
+                    <span>Extract</span>
+                  </button>
+                  <button class="color-row-btn" id="addColorRowBtn" title="Add Color">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                  </button>
+                </div>
+              </div>
+
+              <div class="color-rows-list" id="colorRowsList">
+                <!-- Populated by app.js -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===============================================================
+             PANE 2: DEMO PHOTOS SELECTION PANE (OPENED BY DEMO ICON)
+             =============================================================== -->
+        <div class="inspector-pane" id="paneDemoPhotos">
+          <div class="inspector-section" id="demoPhotosSection">
+            <div class="section-header">
+              <span style="display:inline-flex;align-items:center;gap:5px">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                DEMO PHOTOS
+              </span>
+            </div>
+            <div style="font-size:11px;color:var(--text-dim);line-height:1.4">
+              Choose a sample photo below to preview in ASCII art:
+            </div>
+            <div class="demo-photos-grid" id="demoPhotosGrid">
+              <!-- Clickable photo demo icon cards populated by app.js -->
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="studio-toast" id="studioToast">Ready</div>
+
+  <!-- Core Scripts -->
+  <script src="js/palettes.js"></script>
+  <script src="js/exporters.js"></script>
+  <script src="js/demo-photos.js"></script>
+  <script src="js/ascii-engine.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

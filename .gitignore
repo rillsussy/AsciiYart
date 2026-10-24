@@ -1,0 +1,20 @@
+# Windows temporary files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Visual Studio / MSBuild temporary files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+.vs/
+[Bb]in/
+[Oo]bj/
+*.pdb
+
+# AsciiYart runtime cache / isolation folders
+WebView2_*
+startup.log
+*.tmp
