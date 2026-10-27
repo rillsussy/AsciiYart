@@ -18,6 +18,10 @@ using Microsoft.Web.WebView2.WinForms;
 
 [assembly: AssemblyTitle("AsciiYart")]
 [assembly: AssemblyProduct("AsciiYart - Photo to ASCII Art Studio")]
+[assembly: AssemblyDescription("Photo to ASCII Art Studio")]
+[assembly: AssemblyCompany("thegraveyart")]
+[assembly: AssemblyCopyright("Copyright © 2026 thegraveyart")]
+[assembly: AssemblyTrademark("thegraveyart")]
 [assembly: AssemblyVersion("1.0.0.0")]
 [assembly: AssemblyFileVersion("1.0.0.0")]
 

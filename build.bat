@@ -35,6 +35,7 @@ pushd "%~dp0"
 
 if %ERRORLEVEL% equ 0 (
     echo.
+    powershell -NoProfile -Command "$cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert | Where-Object { $_.Subject -like '*thegraveyart*' } | Select-Object -First 1; if ($cert) { Set-AuthenticodeSignature -FilePath AsciiYart.exe -Certificate $cert | Out-Null; Write-Host '  [Signed] Publisher: thegraveyart' -ForegroundColor Green }"
     echo [SUCCESS] AsciiYart.exe compiled successfully!
     dir AsciiYart.exe | findstr /i "AsciiYart.exe"
 ) else (
