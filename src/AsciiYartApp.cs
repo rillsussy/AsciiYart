@@ -435,6 +435,7 @@ namespace AsciiYartDesktop
                     string screenshotArg = null;
                     string demoArg = "Apollo";
                     bool showDrawer = false;
+                    bool darkSpots = false;
                     for (int i = 0; i < cmdArgs.Length; i++)
                     {
                         if (cmdArgs[i].StartsWith("--screenshot=", StringComparison.OrdinalIgnoreCase))
@@ -453,6 +454,10 @@ namespace AsciiYartDesktop
                         {
                             showDrawer = true;
                         }
+                        else if (cmdArgs[i].Equals("--dark-spots", StringComparison.OrdinalIgnoreCase))
+                        {
+                            darkSpots = true;
+                        }
                     }
 
                     if (!string.IsNullOrEmpty(screenshotArg))
@@ -469,6 +474,17 @@ namespace AsciiYartDesktop
                                     "})();"
                                 );
                                 await Task.Delay(800);
+                            }
+
+                            if (darkSpots)
+                            {
+                                await _webView.CoreWebView2.ExecuteScriptAsync(
+                                    "(() => {" +
+                                    "  const darkBtn = document.getElementById('btnTargetDark');" +
+                                    "  if (darkBtn) darkBtn.click();" +
+                                    "})();"
+                                );
+                                await Task.Delay(500);
                             }
 
                             if (showDrawer)

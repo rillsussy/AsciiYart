@@ -363,6 +363,24 @@ window.DitherBoy = window.DitherBoy || {};
     document.getElementById('chkInvertAscii').checked = !!state.ascii.invert;
     document.getElementById('asciiColorModeSelect').value = state.color.mode || 'palette';
     document.getElementById('activeFilenameLabel').textContent = state.filename || 'No photo loaded';
+
+    const btnBright = document.getElementById('btnTargetBright');
+    const btnDark = document.getElementById('btnTargetDark');
+    const rampLbl = document.getElementById('customRampLabel');
+    if (btnBright && btnDark) {
+      const isDarkTarget = !!state.ascii.invert;
+      btnBright.style.background = isDarkTarget ? '' : 'rgba(107,158,255,0.16)';
+      btnBright.style.borderColor = isDarkTarget ? '' : '#6b9eff';
+      btnBright.style.color = isDarkTarget ? '' : '#fff';
+      btnDark.style.background = isDarkTarget ? 'rgba(107,158,255,0.16)' : '';
+      btnDark.style.borderColor = isDarkTarget ? '#6b9eff' : '';
+      btnDark.style.color = isDarkTarget ? '#fff' : '';
+    }
+    if (rampLbl) {
+      rampLbl.textContent = state.ascii.invert
+        ? 'Characters (Bright → Dark)'
+        : 'Characters (Dark → Bright)';
+    }
   }
 
   // =========================================================================
@@ -520,9 +538,37 @@ window.DitherBoy = window.DitherBoy || {};
       requestRender();
     });
     document.getElementById('chkInvertAscii').addEventListener('change', (e) => {
+      pushUndoState();
       state.ascii.invert = e.target.checked;
+      syncUIWithState();
       requestRender();
+      showToast(
+        state.ascii.invert
+          ? 'ASCII Placement: Dark Spots (Bright spots empty)'
+          : 'ASCII Placement: Bright Spots (Dark spots empty)'
+      );
     });
+
+    const btnTargetBright = document.getElementById('btnTargetBright');
+    const btnTargetDark = document.getElementById('btnTargetDark');
+    if (btnTargetBright && btnTargetDark) {
+      btnTargetBright.addEventListener('click', () => {
+        if (!state.ascii.invert) return;
+        pushUndoState();
+        state.ascii.invert = false;
+        syncUIWithState();
+        requestRender();
+        showToast('ASCII Placement: Bright Spots (Dark spots empty)');
+      });
+      btnTargetDark.addEventListener('click', () => {
+        if (state.ascii.invert) return;
+        pushUndoState();
+        state.ascii.invert = true;
+        syncUIWithState();
+        requestRender();
+        showToast('ASCII Placement: Dark Spots (Bright spots empty)');
+      });
+    }
 
     // Toggle More ASCII Controls
     const moreBox = document.getElementById('moreAsciiControls');
@@ -541,6 +587,7 @@ window.DitherBoy = window.DitherBoy || {};
       state.ascii.lineScale = 5;
       state.ascii.edgeStrength = 45;
       state.ascii.contrast = 125;
+      state.ascii.invert = false;
       syncUIWithState();
       requestRender();
       showToast('ASCII settings reset');

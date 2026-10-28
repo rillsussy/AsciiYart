@@ -163,9 +163,12 @@ window.DitherBoy = window.DitherBoy || {};
     const charAspect = 0.56 * Math.max(0.5, Math.min(2.0, (asciiConfig.lineScale || 1)));
     const rows = Math.max(12, Math.round((srcH / srcW) * cols * charAspect));
 
-    const brightnessOffset = (asciiConfig.thresholdBias || 0) * 1.8;
+    const biasNorm = (asciiConfig.thresholdBias || 0) / 100;
     const contrast = Math.max(0.2, Math.min(3.0, (asciiConfig.contrast || 120) / 100));
     const invert = !!asciiConfig.invert;
+    const gateCutoff = invert
+      ? Math.max(0.02, Math.min(0.88, 0.36 - biasNorm * 0.75))
+      : Math.max(0.01, Math.min(0.85, 0.08 - biasNorm * 0.65));
     const ditherMode = asciiConfig.ditherMode || 'floyd'; // 'none', 'floyd', 'atkinson', 'bayer'
     const ditherSpread = (asciiConfig.ditherStrength ?? 65) / 100;
     const extraEdgeStrength = (asciiConfig.edgeStrength ?? 0) / 100;
@@ -206,10 +209,20 @@ window.DitherBoy = window.DitherBoy || {};
         let gv = sumG / count;
         let bv = sumB / count;
 
-        // Apply contrast & brightness
-        rv = Math.max(0, Math.min(255, (rv - 128) * contrast + 128 + brightnessOffset));
-        gv = Math.max(0, Math.min(255, (gv - 128) * contrast + 128 + brightnessOffset));
-        bv = Math.max(0, Math.min(255, (bv - 128) * contrast + 128 + brightnessOffset));
+        // Apply contrast
+        rv = Math.max(0, Math.min(255, (rv - 128) * contrast + 128));
+        gv = Math.max(0, Math.min(255, (gv - 128) * contrast + 128));
+        bv = Math.max(0, Math.min(255, (bv - 128) * contrast + 128));
+
+        const photoLuma = (0.2126 * rv + 0.7152 * gv + 0.0722 * bv) / 255;
+        let targetIntensity = invert ? (1.0 - photoLuma) : photoLuma;
+
+        if (targetIntensity <= gateCutoff) {
+          targetIntensity = 0;
+        } else {
+          targetIntensity = (targetIntensity - gateCutoff) / Math.max(0.05, 1.0 - gateCutoff);
+        }
+        targetIntensity = Math.max(0, Math.min(1, targetIntensity));
 
         if (invert) {
           rv = 255 - rv;
@@ -221,7 +234,7 @@ window.DitherBoy = window.DitherBoy || {};
         cellR[cellIdx] = rv;
         cellG[cellIdx] = gv;
         cellB[cellIdx] = bv;
-        cellLuma[cellIdx] = (0.2126 * rv + 0.7152 * gv + 0.0722 * bv) / 255;
+        cellLuma[cellIdx] = targetIntensity;
       }
     }
 
@@ -230,8 +243,12 @@ window.DitherBoy = window.DitherBoy || {};
     if (ditherMode === 'bayer') {
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
-          const bVal = (BAYER_4[r & 3][c & 3] + 0.5) / 16 - 0.5;
           const idx = r * cols + c;
+          if (cellLuma[idx] <= 0) {
+            workLuma[idx] = 0;
+            continue;
+          }
+          const bVal = (BAYER_4[r & 3][c & 3] + 0.5) / 16 - 0.5;
           workLuma[idx] = Math.max(0, Math.min(1, workLuma[idx] + bVal * (1.8 / Math.max(2, rampLen)) * ditherSpread));
         }
       }
@@ -240,26 +257,30 @@ window.DitherBoy = window.DitherBoy || {};
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           const idx = r * cols + c;
+          if (cellLuma[idx] <= 0) {
+            workLuma[idx] = 0;
+            continue;
+          }
           const oldL = Math.max(0, Math.min(1, workLuma[idx]));
           const qL = Math.round(oldL * steps) / steps;
           workLuma[idx] = qL;
           const err = (oldL - qL) * ditherSpread;
           if (ditherMode === 'atkinson') {
             const w = err / 8;
-            if (c + 1 < cols) workLuma[idx + 1] += w;
-            if (c + 2 < cols) workLuma[idx + 2] += w;
+            if (c + 1 < cols && cellLuma[idx + 1] > 0) workLuma[idx + 1] += w;
+            if (c + 2 < cols && cellLuma[idx + 2] > 0) workLuma[idx + 2] += w;
             if (r + 1 < rows) {
-              if (c > 0) workLuma[idx + cols - 1] += w;
-              workLuma[idx + cols] += w;
-              if (c + 1 < cols) workLuma[idx + cols + 1] += w;
+              if (c > 0 && cellLuma[idx + cols - 1] > 0) workLuma[idx + cols - 1] += w;
+              if (cellLuma[idx + cols] > 0) workLuma[idx + cols] += w;
+              if (c + 1 < cols && cellLuma[idx + cols + 1] > 0) workLuma[idx + cols + 1] += w;
             }
-            if (r + 2 < rows) workLuma[idx + cols * 2] += w;
+            if (r + 2 < rows && cellLuma[idx + cols * 2] > 0) workLuma[idx + cols * 2] += w;
           } else {
-            if (c + 1 < cols) workLuma[idx + 1] += err * (7 / 16);
+            if (c + 1 < cols && cellLuma[idx + 1] > 0) workLuma[idx + 1] += err * (7 / 16);
             if (r + 1 < rows) {
-              if (c > 0) workLuma[idx + cols - 1] += err * (3 / 16);
-              workLuma[idx + cols] += err * (5 / 16);
-              if (c + 1 < cols) workLuma[idx + cols + 1] += err * (1 / 16);
+              if (c > 0 && cellLuma[idx + cols - 1] > 0) workLuma[idx + cols - 1] += err * (3 / 16);
+              if (cellLuma[idx + cols] > 0) workLuma[idx + cols] += err * (5 / 16);
+              if (c + 1 < cols && cellLuma[idx + cols + 1] > 0) workLuma[idx + cols + 1] += err * (1 / 16);
             }
           }
         }
@@ -291,24 +312,28 @@ window.DitherBoy = window.DitherBoy || {};
         const luma = Math.max(0, Math.min(1, workLuma[idx]));
         let ch = ' ';
 
+        // If cell is gated out as empty (e.g. bright spot in Dark Spots mode, or dark background in Bright Spots mode)
+        if (cellLuma[idx] <= 0) {
+          ch = ' ';
+        }
         // Special Case A: True 2x4 Subpixel Unicode Braille (U+2800 + mask)
-        if (styleObj.isBraille) {
+        else if (styleObj.isBraille) {
           let mask = 0;
-          const thresh = 128 - brightnessOffset;
+          const thresh = Math.max(20, Math.min(235, gateCutoff * 255 + 45));
           for (let dy = 0; dy < 4; dy++) {
             const sy = Math.min(srcH - 1, Math.floor(((r + (dy + 0.5) / 4) / rows) * srcH));
             for (let dx = 0; dx < 2; dx++) {
               const sx = Math.min(srcW - 1, Math.floor(((c + (dx + 0.5) / 2) / cols) * srcW));
               const pIdx = (sy * srcW + sx) * 4;
               let pLuma = 0.2126 * srcData[pIdx] + 0.7152 * srcData[pIdx + 1] + 0.0722 * srcData[pIdx + 2];
-              pLuma = (pLuma - 128) * contrast + 128;
+              pLuma = Math.max(0, Math.min(255, (pLuma - 128) * contrast + 128));
               if (invert) pLuma = 255 - pLuma;
               if (pLuma >= thresh) {
                 mask |= brailleMap[dy][dx];
               }
             }
           }
-          ch = String.fromCharCode(0x2800 + mask);
+          ch = mask === 0 ? ' ' : String.fromCharCode(0x2800 + mask);
         }
         // Special Case B: Binary 0/1 Coordinate Stream
         else if (styleObj.isBinaryCoord) {

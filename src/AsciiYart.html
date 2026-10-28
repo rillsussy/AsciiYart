@@ -245,7 +245,7 @@
 
             <!-- Live Editable Character Ramp -->
             <div class="field-group">
-              <div class="field-label">Characters (Dark → Bright)</div>
+              <div class="field-label" id="customRampLabel">Characters (Dark → Bright)</div>
               <input
                 type="text"
                 class="color-hex-input"
@@ -270,6 +270,31 @@
             </div>
 
             <div id="ditherSettingsBody" style="display:flex;flex-direction:column;gap:10px">
+              <!-- ASCII Placement Target (Bright Spots vs Dark Spots) -->
+              <div class="field-group">
+                <div class="field-label">ASCII Placement</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                  <button
+                    type="button"
+                    class="clean-select"
+                    id="btnTargetBright"
+                    title="Bright spots get ASCII, dark spots stay empty"
+                    style="text-align:center;cursor:pointer;font-weight:600;padding:6px 8px;background:rgba(107,158,255,0.16);border-color:#6b9eff;color:#fff"
+                  >
+                    Bright Spots
+                  </button>
+                  <button
+                    type="button"
+                    class="clean-select"
+                    id="btnTargetDark"
+                    title="Dark spots get ASCII, bright spots stay empty"
+                    style="text-align:center;cursor:pointer;font-weight:600;padding:6px 8px"
+                  >
+                    Dark Spots
+                  </button>
+                </div>
+              </div>
+
               <!-- Scale (Columns / DPI) -->
               <div class="field-group">
                 <div class="field-label">Scale (DPI)</div>
