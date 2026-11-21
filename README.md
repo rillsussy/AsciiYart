@@ -15,11 +15,11 @@
   <img src="https://img.shields.io/badge/License-MIT-blue?style=flat" alt="License" />
 </p>
 
-<div align="center">
-
-[![Get it on Orion Store](https://raw.githubusercontent.com/RookieEnough/Orion-Store/refs/heads/main/assets/orion-badge.png)](https://rookieenough.github.io/Orion-Data/app/?id=asciiyart)
-
-</div>
+<p align="center">
+  <a href="https://rookieenough.github.io/Orion-Data/app/?id=asciiyart">
+    <img src="https://raw.githubusercontent.com/RookieEnough/Orion-Store/refs/heads/main/assets/orion-badge.png" width="180" alt="Get it on Orion Store" />
+  </a>
+</p>
 
 ---
 
